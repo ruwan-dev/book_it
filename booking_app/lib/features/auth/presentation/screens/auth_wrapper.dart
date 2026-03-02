@@ -1,3 +1,5 @@
+import 'package:booking_app/core/widgets/custom_loader.dart';
+import 'package:booking_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -16,12 +18,12 @@ class AuthWrapper extends ConsumerWidget {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(backgroundColor: Color(0xFFF5F5F5), body: SizedBox.shrink());
         }
 
         // ලොග් වෙලා නැත්නම් විතරයි Welcome Screen එක පෙන්වන්නේ
         if (!snapshot.hasData) {
-          return const WelcomeScreen();
+          return const LoginScreen();
         }
 
         final User user = snapshot.data!;
@@ -29,7 +31,7 @@ class AuthWrapper extends ConsumerWidget {
           future: FirebaseFirestore.instance.collection('users').doc(user.uid).get(),
           builder: (context, roleSnapshot) {
             if (roleSnapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(body: Center(child: CircularProgressIndicator()));
+            return const Scaffold(backgroundColor: Color(0xFFF5F5F5), body: SizedBox.shrink());
             }
 
             if (roleSnapshot.hasData && roleSnapshot.data!.exists) {

@@ -1,3 +1,4 @@
+import 'package:booking_app/core/widgets/custom_loader.dart';
 import 'package:booking_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -89,7 +90,7 @@ class CustomerHome extends ConsumerWidget {
             .where('customerId', isEqualTo: user!.uid)
             .snapshots(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          if (!snapshot.hasData) return const CustomLoader();
           final bookings = snapshot.data!.docs;
           if (bookings.isEmpty) return const Center(child: Text("No bookings yet."));
 
@@ -142,7 +143,7 @@ class CustomerHome extends ConsumerWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('shops').where('address', isEqualTo: location).where('category', isEqualTo: category).snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData) return const CustomLoader();
         final shops = snapshot.data!.docs;
         return ListView.builder(
           shrinkWrap: true,

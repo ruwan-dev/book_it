@@ -1,3 +1,4 @@
+import 'package:booking_app/core/widgets/custom_loader.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -80,7 +81,7 @@ class _VendorHomeState extends State<VendorHome> {
           
           // 1. Loading...
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const CustomLoader();
           }
 
           // 2. කඩයක් හදලා තියෙනවා නම් -> විස්තර පෙන්වන්න (Dashboard)

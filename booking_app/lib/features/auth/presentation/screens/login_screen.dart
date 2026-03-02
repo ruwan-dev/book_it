@@ -55,7 +55,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isLogin ? "Welcome Back 👋" : "Create Account 🚀",
+                  isLogin ? "Hello," : "I am a",
                   style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 32),
@@ -65,7 +65,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     children: [
                       _buildRoleSelector('customer', "Customer", userRole == 'customer'),
                       const SizedBox(width: 10),
-                      _buildRoleSelector('vendor', "Business", userRole == 'vendor'),
+                      _buildRoleSelector('vendor', "Vendor", userRole == 'vendor'),
                     ],
                   ),
                   const SizedBox(height: 24),

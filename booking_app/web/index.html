@@ -1,38 +1,106 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="$FLUTTER_BASE_HREF">
-
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="A new Flutter project.">
 
-  <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="booking_app">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
-  <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>booking_app</title>
+  <title>Booking App</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    /* 1. Default Flutter Loading අයින් කිරීම */
+    .flutter-loader, #loading-indicator-element, .loading {
+      display: none !important;
+      visibility: hidden !important;
+    }
+
+    /* 2. මුළු පිටුවේම පසුබිම සකස් කිරීම */
+    body {
+      background-color: #F8F9FE; /* AppColors.background */
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+    }
+
+    .loader-wrapper {
+      width: 250px; /* ලෝඩර් එකේ පළල */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* 3. Linear Line Loader Style */
+    .line-loader {
+      width: 100%;
+      height: 4px;
+      background-color: rgba(108, 99, 255, 0.1); /* පසුබිම් ඉර (ලා පාට) */
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .line-progress {
+      width: 40%;
+      height: 100%;
+      background-color: #6C63FF; /* AppColors.primary */
+      position: absolute;
+      border-radius: 10px;
+      animation: slide-move 1.5s infinite ease-in-out;
+    }
+
+    @keyframes slide-move {
+      0% { left: -40%; }
+      50% { left: 40%; width: 60%; } /* ගමන් කරන අතරතුර දිග වෙනස් වීම */
+      100% { left: 100%; }
+    }
+
+    /* 4. Tagline Text Style (තනි පේළියට) */
+    .marketing-text {
+      margin-top: 15px;
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      color: #9E9E9E;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      white-space: nowrap; /* අකුරු පේළිය කැඩීම වළක්වයි */
+      text-align: center;
+    }
+  </style>
 </head>
 <body>
+  <div class="loader-wrapper" id="app-loader">
+    <div class="line-loader">
+      <div class="line-progress"></div>
+    </div>
+    <div class="marketing-text">Skip the wait. Book in seconds.</div>
+  </div>
+
   <script src="flutter_bootstrap.js" async></script>
+
+  <script>
+    // Flutter පළමු Frame එක ඇන්ඳ ගමන් HTML එක අයින් කරයි
+    window.addEventListener('flutter-first-frame', function() {
+      var loader = document.getElementById('app-loader');
+      if (loader) {
+        loader.style.transition = 'opacity 0.4s ease';
+        loader.style.opacity = '0';
+        setTimeout(function() { loader.remove(); }, 400);
+      }
+    });
+  </script>
 </body>
 </html>

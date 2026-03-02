@@ -1,3 +1,4 @@
+import 'package:booking_app/core/widgets/custom_loader.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -33,7 +34,7 @@ class ShopDetailsScreen extends StatelessWidget {
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance.collection('shops').doc(shopId).collection('services').snapshots(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                if (!snapshot.hasData) return const CustomLoader();
                 final services = snapshot.data!.docs;
                 if (services.isEmpty) return const Center(child: Text("No services available right now."));
 

@@ -1,3 +1,4 @@
+import 'package:booking_app/core/widgets/custom_loader.dart';
 import 'package:booking_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -96,7 +97,7 @@ class _VendorHomeState extends State<VendorHome> {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('shops').doc(currentUser!.uid).snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (snapshot.connectionState == ConnectionState.waiting) return const CustomLoader();
         
         // Shop එකක් දැනටමත් හදලා නැත්නම් Form එක පෙන්වන්න
         if (!snapshot.hasData || !snapshot.data!.exists) {
@@ -216,7 +217,7 @@ class _VendorHomeState extends State<VendorHome> {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('shops').doc(currentUser!.uid).collection('services').snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData) return const CustomLoader();
         final services = snapshot.data!.docs;
         if (services.isEmpty) return const Padding(padding: EdgeInsets.all(20), child: Text("No services added yet."));
         
@@ -293,7 +294,7 @@ class _VendorHomeState extends State<VendorHome> {
             );
           }
           if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
-          return const Center(child: CircularProgressIndicator());
+          return const CustomLoader();
         },
       ),
     );
