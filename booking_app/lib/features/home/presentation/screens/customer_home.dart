@@ -7,11 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'shop_details_screen.dart';
 
-
-// --- State Management Providers ---
+// --- State Management ---
 final bottomNavIndexProvider = StateProvider<int>((ref) => 0);
 final selectedLocationProvider = StateProvider<String?>((ref) => null);
 final selectedCategoryProvider = StateProvider<String>((ref) => 'Salon');
+final searchQueryProvider = StateProvider<String>((ref) => '');
 
 class CustomerHome extends ConsumerWidget {
   const CustomerHome({super.key});
@@ -22,7 +22,7 @@ class CustomerHome extends ConsumerWidget {
 
     final List<Widget> pages = [
       _buildHomeScreen(context, ref),
-      _buildCustomerBookingsScreen(), 
+      _buildCustomerBookingsScreen(),
       _buildProfileScreen(context),
     ];
 
@@ -41,10 +41,9 @@ class CustomerHome extends ConsumerWidget {
         type: BottomNavigationBarType.fixed,
         selectedItemColor: AppColors.primary,
         unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: "My Bookings"),
+          BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: "Bookings"),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
           BottomNavigationBarItem(icon: Icon(Icons.logout), label: "Logout"),
         ],
@@ -52,111 +51,179 @@ class CustomerHome extends ConsumerWidget {
     );
   }
 
-  // --- [HOME SCREEN] ---
   Widget _buildHomeScreen(BuildContext context, WidgetRef ref) {
     final selectedLoc = ref.watch(selectedLocationProvider);
     final selectedCat = ref.watch(selectedCategoryProvider);
+    final searchQuery = ref.watch(searchQueryProvider);
 
-    return SafeArea(
+    return Column(
+      children: [
+        // උඩට කළ Header එක
+        _buildHeader(context, ref, selectedLoc, searchQuery),
+
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(left: 20, top: 20, bottom: 10),
+                  child: Text("Categories", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                _buildCategoryGrid(ref, selectedCat),
+                const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text("Available Shops", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                _buildShopList(context, selectedLoc, selectedCat, searchQuery),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- [HEADER LOGIC - TOP ADJUSTED] ---
+  Widget _buildHeader(BuildContext context, WidgetRef ref, String? currentLoc, String query) {
+    return Container(
+      // top padding එක 60 සිට 45 දක්වා අඩු කළා
+      padding: const EdgeInsets.only(top: 45, left: 20, right: 20, bottom: 20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 5))],
+      ),
       child: Column(
         children: [
-          _buildLocationHeader(context, ref, selectedLoc),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(padding: EdgeInsets.all(20), child: Text("Categories", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-                  _buildCategoryGrid(ref, selectedCat),
-                  const Padding(padding: EdgeInsets.all(20), child: Text("Available Shops", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-                  _buildShopList(context, selectedLoc, selectedCat),
-                ],
+          if (currentLoc == null) ...[
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: TextField(
+                onChanged: (val) => ref.read(searchQueryProvider.notifier).state = val,
+                decoration: const InputDecoration(
+                  hintText: "Search your city to explore...",
+                  prefixIcon: Icon(Icons.search, color: AppColors.primary),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 15),
+                ),
               ),
             ),
+            if (query.length >= 3) _buildLocationSuggestions(ref, query),
+          ] else ...[
+            _buildSelectedLocationCard(ref, currentLoc),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectedLocationCard(WidgetRef ref, String city) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.location_on, color: AppColors.primary, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              city, 
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.cancel, color: AppColors.primary),
+            onPressed: () {
+              ref.read(selectedLocationProvider.notifier).state = null;
+              ref.read(searchQueryProvider.notifier).state = '';
+            },
           ),
         ],
       ),
     );
   }
 
-  // --- [MY BOOKINGS SCREEN] ---
-  Widget _buildCustomerBookingsScreen() {
-    final user = FirebaseAuth.instance.currentUser;
-    return Scaffold(
-      appBar: AppBar(title: const Text("My Appointments"), centerTitle: true),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('bookings')
-            .where('customerId', isEqualTo: user!.uid)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const CustomLoader();
-          final bookings = snapshot.data!.docs;
-          if (bookings.isEmpty) return const Center(child: Text("No bookings yet."));
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(15),
-            itemCount: bookings.length,
-            itemBuilder: (context, index) {
-              final b = bookings[index].data() as Map<String, dynamic>;
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  title: Text(b['serviceName'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text("${b['shopName']} \n${b['date']} at ${b['time']}"),
-                  trailing: Container(
-                    padding: const EdgeInsets.all(5),
-                    decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(5)),
-                    child: Text(b['status'].toString().toUpperCase(), style: const TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-
-  // --- [UI HELPERS] ---
-  Widget _buildLocationHeader(BuildContext context, WidgetRef ref, String? currentLoc) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 25),
-      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(bottom: Radius.circular(30))),
-      child: GestureDetector(
-        onTap: () => _openLocationSearch(context, ref),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.near_me_rounded, color: AppColors.primary, size: 20),
-            const SizedBox(width: 10),
-            Text(currentLoc ?? "Explore your area", style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildShopList(BuildContext context, String? location, String category) {
-    if (location == null) return const Center(child: Padding(padding: EdgeInsets.all(40), child: Text("Select a location first.")));
+  Widget _buildLocationSuggestions(WidgetRef ref, String query) {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('shops').where('address', isEqualTo: location).where('category', isEqualTo: category).snapshots(),
+      stream: FirebaseFirestore.instance.collection('locations').snapshots(),
+      builder: (context, snap) {
+        if (!snap.hasData) return const SizedBox();
+        final list = snap.data!.docs.where((d) => 
+          d['name'].toString().toLowerCase().contains(query.toLowerCase())).toList();
+        
+        if (list.isEmpty) return const SizedBox();
+
+        return Container(
+          margin: const EdgeInsets.only(top: 10),
+          constraints: const BoxConstraints(maxHeight: 180),
+          decoration: BoxDecoration(
+            color: Colors.white, 
+            borderRadius: BorderRadius.circular(15), 
+            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 5)],
+          ),
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: list.length,
+            itemBuilder: (c, i) => ListTile(
+              leading: const Icon(Icons.location_on_outlined, size: 20, color: AppColors.primary),
+              title: Text(list[i]['name']),
+              onTap: () {
+                ref.read(selectedLocationProvider.notifier).state = list[i]['name'];
+                ref.read(searchQueryProvider.notifier).state = '';
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildShopList(BuildContext context, String? location, String category, String query) {
+    if (location == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 60),
+          child: Text("Select your city to see shops", style: TextStyle(color: Colors.grey)),
+        ),
+      );
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('shops').where('address', isEqualTo: location).snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const CustomLoader();
-        final shops = snapshot.data!.docs;
+        
+        final filteredShops = snapshot.data!.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return data['category'] == category;
+        }).toList();
+
+        if (filteredShops.isEmpty) return const Center(child: Padding(padding: EdgeInsets.all(40), child: Text("No shops found here.")));
+
         return ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          itemCount: shops.length,
+          itemCount: filteredShops.length,
           itemBuilder: (context, index) {
-            final shop = shops[index].data() as Map<String, dynamic>;
+            final shop = filteredShops[index].data() as Map<String, dynamic>;
             return Card(
+              margin: const EdgeInsets.only(bottom: 15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
               child: ListTile(
-                title: Text(shop['name']),
-                subtitle: Text(shop['address']),
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ShopDetailsScreen(shopId: shops[index].id, shopData: shop))),
+                leading: CircleAvatar(backgroundColor: AppColors.primary.withOpacity(0.1), child: const Icon(Icons.storefront, color: AppColors.primary)),
+                title: Text(shop['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text(shop['category']),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ShopDetailsScreen(shopId: filteredShops[index].id, shopData: shop))),
               ),
             );
           },
@@ -175,6 +242,7 @@ class CustomerHome extends ConsumerWidget {
           height: 100,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
             itemCount: types.length,
             itemBuilder: (context, index) {
               final name = types[index]['name'];
@@ -183,12 +251,15 @@ class CustomerHome extends ConsumerWidget {
                 onTap: () => ref.read(selectedCategoryProvider.notifier).state = name,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Column(
-                    children: [
-                      CircleAvatar(backgroundColor: isSel ? AppColors.primary : Colors.grey[100], child: Icon(_getIcon(name), color: isSel ? Colors.white : Colors.grey)),
-                      Text(name),
-                    ],
-                  ),
+                  child: Column(children: [
+                    CircleAvatar(
+                      radius: 30,
+                      backgroundColor: isSel ? AppColors.primary : Colors.white,
+                      child: Icon(Icons.category, color: isSel ? Colors.white : Colors.grey),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(name, style: TextStyle(fontSize: 11, fontWeight: isSel ? FontWeight.bold : FontWeight.normal)),
+                  ]),
                 ),
               );
             },
@@ -198,82 +269,16 @@ class CustomerHome extends ConsumerWidget {
     );
   }
 
-  IconData _getIcon(String name) {
-    if (name.toLowerCase().contains('salon')) return Icons.content_cut;
-    return Icons.category;
-  }
-
-  void _openLocationSearch(BuildContext context, WidgetRef ref) async {
-    final snap = await FirebaseFirestore.instance.collection('locations').get();
-    final cities = snap.docs.map((d) => d['name'] as String).toList();
-    if (context.mounted) {
-      final res = await showSearch(context: context, delegate: LocationSearchDelegate(cities));
-      if (res != null) ref.read(selectedLocationProvider.notifier).state = res;
-    }
-  }
-
+  Widget _buildCustomerBookingsScreen() => const Scaffold(body: Center(child: Text("Appointments")));
+  Widget _buildProfileScreen(BuildContext context) => const Scaffold(body: Center(child: Text("Profile")));
+  
   void _showLogoutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: const Text("Logout"),
-        content: const Text("Are you sure you want to logout?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c),
-            child: const Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-              if (context.mounted) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (route) => false,
-                );
-              }
-            },
-            child: const Text("Logout", style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileScreen(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-    return Center(child: Text(user?.email ?? "User Profile"));
-  }
-}
-
-// --- [SEARCH DELEGATE WITH FIX] ---
-class LocationSearchDelegate extends SearchDelegate<String> {
-  final List<String> cities;
-  LocationSearchDelegate(this.cities);
-
-  @override
-  List<Widget>? buildActions(BuildContext context) => [IconButton(icon: const Icon(Icons.clear), onPressed: () => query = "")];
-
-  @override
-  Widget? buildLeading(BuildContext context) => IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => close(context, ""));
-
-  @override
-  Widget buildResults(BuildContext context) => _buildSuggestions(context); // context එක pass කළා
-
-  @override
-  Widget buildSuggestions(BuildContext context) => _buildSuggestions(context); // context එක pass කළා
-
-  Widget _buildSuggestions(BuildContext context) { // මෙතනට BuildContext context එකතු කළා
-    final list = cities.where((c) => c.toLowerCase().contains(query.toLowerCase())).toList();
-    
-    return ListView.builder(
-      itemCount: list.length, 
-      itemBuilder: (c, i) => ListTile(
-        leading: const Icon(Icons.location_city),
-        title: Text(list[i]), 
-        onTap: () => close(context, list[i]) // දැන් මෙතන 'context' එක අඳුරගන්න පුළුවන්
-      )
-    );
+    showDialog(context: context, builder: (c) => AlertDialog(title: const Text("Logout"), actions: [
+      TextButton(onPressed: () => Navigator.pop(c), child: const Text("No")),
+      TextButton(onPressed: () async {
+        await FirebaseAuth.instance.signOut();
+        Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (c) => const LoginScreen()), (r) => false);
+      }, child: const Text("Yes"))
+    ]));
   }
 }
