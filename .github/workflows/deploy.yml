@@ -1,0 +1,34 @@
+name: Deploy Flutter Web to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main # main branch එකට push කරද්දී මේක වැඩ කරනවා
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Install Dependencies
+        working-directory: ./booking_app
+        run: flutter pub get
+
+      - name: Build Web App
+        working-directory: ./booking_app
+        # ඔයාගේ Repository නම 'book_it' නිසා base-href එක මේ විදිහටම තියෙන්න ඕනේ
+        run: flutter build web --base-href "/book_it/" 
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./booking_app/build/web # බිල්ඩ් වෙන ෆයිල් තියෙන තැන
