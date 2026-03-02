@@ -17,18 +17,40 @@ class _VendorHomeState extends State<VendorHome> {
   final User? currentUser = FirebaseAuth.instance.currentUser;
   int _selectedIndex = 0;
 
+  // --- [SHOP CREATE FORM CONTROLLERS] ---
+  final nameController = TextEditingController();
+  final descController = TextEditingController();
+  String? selectedCity;
+  String? selectedCategory;
+  bool isLoading = false;
+
+  // --- [CREATE SHOP FUNCTION] ---
+  Future<void> createShop() async {
+    if (nameController.text.isEmpty || selectedCity == null || selectedCategory == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please fill all fields")));
+      return;
+    }
+    setState(() => isLoading = true);
+    try {
+      await FirebaseFirestore.instance.collection('shops').doc(currentUser!.uid).set({
+        'ownerId': currentUser!.uid,
+        'name': nameController.text.trim(),
+        'description': descController.text.trim(),
+        'address': selectedCity,
+        'category': selectedCategory,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } finally {
+      if (mounted) setState(() => isLoading = false);
+    }
+  }
+
   // --- [STATUS UPDATE FUNCTION] ---
   Future<void> updateBookingStatus(String bookingId, String newStatus) async {
     try {
-      await FirebaseFirestore.instance
-          .collection('bookings')
-          .doc(bookingId)
-          .update({'status': newStatus});
-      
+      await FirebaseFirestore.instance.collection('bookings').doc(bookingId).update({'status': newStatus});
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Booking $newStatus successfully!")),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Booking $newStatus successfully!")));
       }
     } catch (e) {
       debugPrint("Error updating status: $e");
@@ -68,17 +90,87 @@ class _VendorHomeState extends State<VendorHome> {
     );
   }
 
+  // --- [MAIN CONTENT (Form or Dashboard)] ---
   Widget _buildMainContent() {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('shops').doc(currentUser!.uid).snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData || !snapshot.data!.exists) return _buildCreateShopForm();
+        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        
+        // Shop එකක් දැනටමත් හදලා නැත්නම් Form එක පෙන්වන්න
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return _buildCreateShopForm();
+        }
+        
+        // Shop එක හදලා නම් Dashboard එක පෙන්වන්න
         final data = snapshot.data!.data() as Map<String, dynamic>;
         return _buildDashboard(data);
       },
     );
   }
 
+  // --- [SHOP CREATION FORM] ---
+  Widget _buildCreateShopForm() {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(25),
+        child: Column(
+          children: [
+            const Text("Setup Your Business", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 30),
+            CustomTextField(hintText: "Shop Name", prefixIcon: Icons.store, controller: nameController),
+            const SizedBox(height: 15),
+            
+            // City Dropdown
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collection('locations').snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const LinearProgressIndicator();
+                var items = snapshot.data!.docs;
+                return DropdownButtonFormField<String>(
+                  decoration: InputDecoration(
+                    labelText: "Select City", 
+                    filled: true, 
+                    fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)
+                  ),
+                  items: items.map((doc) => DropdownMenuItem(value: doc['name'] as String, child: Text(doc['name']))).toList(),
+                  onChanged: (val) => setState(() => selectedCity = val),
+                );
+              },
+            ),
+            const SizedBox(height: 15),
+
+            // Category Dropdown
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collection('service_types').snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const LinearProgressIndicator();
+                var items = snapshot.data!.docs;
+                return DropdownButtonFormField<String>(
+                  decoration: InputDecoration(
+                    labelText: "Select Category", 
+                    filled: true, 
+                    fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)
+                  ),
+                  items: items.map((doc) => DropdownMenuItem(value: doc['name'] as String, child: Text(doc['name']))).toList(),
+                  onChanged: (val) => setState(() => selectedCategory = val),
+                );
+              },
+            ),
+            const SizedBox(height: 15),
+            CustomTextField(hintText: "Short Description (Optional)", prefixIcon: Icons.description, controller: descController),
+            const SizedBox(height: 40),
+            
+            PrimaryButton(text: "Create Shop Profile", isLoading: isLoading, onPressed: createShop),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- [DASHBOARD] ---
   Widget _buildDashboard(Map<String, dynamic> data) {
     return SafeArea(
       child: SingleChildScrollView(
@@ -88,14 +180,13 @@ class _VendorHomeState extends State<VendorHome> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(25),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [AppColors.primary, Color(0xFF8E88FF)]),
-                borderRadius: BorderRadius.circular(25),
-              ),
+              decoration: BoxDecoration(gradient: const LinearGradient(colors: [AppColors.primary, Color(0xFF8E88FF)]), borderRadius: BorderRadius.circular(25)),
               child: Column(
                 children: [
+                  const Icon(Icons.storefront, color: Colors.white, size: 50),
+                  const SizedBox(height: 10),
                   Text(data['name'], style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                  Text(data['category'], style: const TextStyle(color: Colors.white70)),
+                  Text("${data['category']} • ${data['address']}", style: const TextStyle(color: Colors.white70)),
                 ],
               ),
             ),
@@ -104,9 +195,10 @@ class _VendorHomeState extends State<VendorHome> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text("My Services", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                IconButton(
+                ElevatedButton.icon(
                   onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AddServiceScreen())),
-                  icon: const CircleAvatar(backgroundColor: AppColors.primary, child: Icon(Icons.add, color: Colors.white)),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text("Add"),
                 ),
               ],
             ),
@@ -118,19 +210,22 @@ class _VendorHomeState extends State<VendorHome> {
     );
   }
 
+  // --- [SERVICE LIST] ---
   Widget _buildServiceList() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('shops').doc(currentUser!.uid).collection('services').snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox();
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final services = snapshot.data!.docs;
+        if (services.isEmpty) return const Padding(padding: EdgeInsets.all(20), child: Text("No services added yet."));
+        
         return ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: services.length,
           itemBuilder: (context, index) => Card(
             child: ListTile(
-              title: Text(services[index]['name']),
+              title: Text(services[index]['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
               trailing: Text("Rs. ${services[index]['price']}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
             ),
           ),
@@ -139,9 +234,10 @@ class _VendorHomeState extends State<VendorHome> {
     );
   }
 
+  // --- [BOOKINGS SCREEN] ---
   Widget _buildBookingsScreen() {
     return Scaffold(
-      appBar: AppBar(title: const Text("Recent Bookings"), centerTitle: true),
+      appBar: AppBar(title: const Text("Appointments"), centerTitle: true),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('bookings')
@@ -149,22 +245,9 @@ class _VendorHomeState extends State<VendorHome> {
             .orderBy('createdAt', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
-          // ලොජික් එක වෙනස් කළා: දත්ත තියෙනවා නම් කෙලින්ම ලිස්ට් එක පෙන්වන්න
           if (snapshot.hasData) {
             final docs = snapshot.data!.docs;
-
-            if (docs.isEmpty) {
-              return const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.calendar_today_outlined, size: 50, color: Colors.grey),
-                    SizedBox(height: 10),
-                    Text("No bookings yet.", style: TextStyle(color: Colors.grey)),
-                  ],
-                ),
-              );
-            }
+            if (docs.isEmpty) return const Center(child: Text("No bookings yet."));
 
             return ListView.builder(
               padding: const EdgeInsets.all(15),
@@ -176,7 +259,6 @@ class _VendorHomeState extends State<VendorHome> {
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   child: Padding(
                     padding: const EdgeInsets.all(12.0),
                     child: Column(
@@ -188,23 +270,19 @@ class _VendorHomeState extends State<VendorHome> {
                           trailing: _buildStatusBadge(status),
                         ),
                         if (status == 'pending')
-                          Padding(
-                            padding: const EdgeInsets.only(top: 10, right: 10),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                TextButton(
-                                  onPressed: () => updateBookingStatus(bookingId, 'rejected'),
-                                  child: const Text("Reject", style: TextStyle(color: Colors.red)),
-                                ),
-                                const SizedBox(width: 10),
-                                ElevatedButton(
-                                  onPressed: () => updateBookingStatus(bookingId, 'approved'),
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                                  child: const Text("Approve", style: TextStyle(color: Colors.white)),
-                                ),
-                              ],
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton(
+                                onPressed: () => updateBookingStatus(bookingId, 'rejected'),
+                                child: const Text("Reject", style: TextStyle(color: Colors.red)),
+                              ),
+                              ElevatedButton(
+                                onPressed: () => updateBookingStatus(bookingId, 'approved'),
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                                child: const Text("Approve", style: TextStyle(color: Colors.white)),
+                              ),
+                            ],
                           ),
                       ],
                     ),
@@ -212,13 +290,8 @@ class _VendorHomeState extends State<VendorHome> {
                 );
               },
             );
-          } 
-          
-          // දත්ත නැතිනම් සහ Error එකක් නැතිනම් පමණක් ලෝඩර් එක පෙන්වන්න
-          if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}"));
           }
-
+          if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
           return const Center(child: CircularProgressIndicator());
         },
       ),
@@ -234,9 +307,7 @@ class _VendorHomeState extends State<VendorHome> {
     );
   }
 
-  Widget _buildProfileScreen() => const Center(child: Text("Vendor Profile"));
-  
-  Widget _buildCreateShopForm() => const Center(child: Text("Please complete your Shop Profile first."));
+  Widget _buildProfileScreen() => const Center(child: Text("Vendor Profile Settings"));
 
   void _showLogoutDialog() {
     showDialog(context: context, builder: (c) => AlertDialog(title: const Text("Logout"), actions: [TextButton(onPressed: () => FirebaseAuth.instance.signOut(), child: const Text("Yes"))]));
