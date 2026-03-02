@@ -1,3 +1,4 @@
+import 'package:booking_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -309,7 +310,33 @@ class _VendorHomeState extends State<VendorHome> {
 
   Widget _buildProfileScreen() => const Center(child: Text("Vendor Profile Settings"));
 
-  void _showLogoutDialog() {
-    showDialog(context: context, builder: (c) => AlertDialog(title: const Text("Logout"), actions: [TextButton(onPressed: () => FirebaseAuth.instance.signOut(), child: const Text("Yes"))]));
+ void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text("Logout"),
+        content: const Text("Are you sure you want to logout?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c), // Dialog එක close කරයි
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut(); // Firebase එකෙන් අයින් වෙයි
+              if (mounted) {
+                // පරණ පේජ් ඔක්කොම අයින් කරලා Login Page එකට යවයි
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
+            },
+            child: const Text("Logout", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 }

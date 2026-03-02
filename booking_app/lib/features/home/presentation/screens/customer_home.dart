@@ -1,9 +1,11 @@
+import 'package:booking_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import 'shop_details_screen.dart';
+
 
 // --- State Management Providers ---
 final bottomNavIndexProvider = StateProvider<int>((ref) => 0);
@@ -210,7 +212,32 @@ class CustomerHome extends ConsumerWidget {
   }
 
   void _showLogoutDialog(BuildContext context) {
-    showDialog(context: context, builder: (c) => AlertDialog(title: const Text("Logout"), actions: [TextButton(onPressed: () => FirebaseAuth.instance.signOut(), child: const Text("Yes"))]));
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text("Logout"),
+        content: const Text("Are you sure you want to logout?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
+            },
+            child: const Text("Logout", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildProfileScreen(BuildContext context) {
